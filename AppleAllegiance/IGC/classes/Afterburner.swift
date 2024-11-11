@@ -5,61 +5,31 @@
 //  Created by Kyle Peterson on 11/9/24.
 //
 
-// Afterburner.swift
-
 import Foundation
 
 // MARK: - Afterburner Class
 
-class Afterburner: IafterburnerIGC, IpartIGC {
+class Afterburner: IafterburnerIGC {
     
     // MARK: - Properties
     
-    private weak var mission: ImissionIGC?
-    private var typeData: DataAfterburnerTypeIGC?
-    private var partType: IpartTypeIGC?
-    private weak var ship: IshipIGC?
+    weak var mission: ImissionIGC?
+    var data: DataPartTypeIGC?
+    var typeData: DataAfterburnerTypeIGC?
+    weak var ship: IshipIGC?
     
-    private var power: Float = 0.0
-    private var mountedFraction: Float = 0.0
-    private var mountID: Mount = Constants.mountNA
-    private var isActive: Bool = false
-    
-    // Reference counting properties
-    private var referenceCount: Int = 1
+    var power: Float = 0.0
+    var mountedFraction: Float = 0.0
+    var mountID: Mount = Constants.mountNA
+    var isActive: Bool = false
     
     // MARK: - Initializer
     
     init() {
-        self.partType = nil
-        self.ship = nil
-        self.isActive = false
-        self.power = 0.0
-        self.mountID = Constants.mountNA
+        // Initializer logic if needed
     }
     
     // MARK: - IpartTypeIGC Protocol Methods
-    
-    func getData() -> UnsafeRawPointer {
-        guard let typeData = self.typeData else {
-            fatalError("DataAfterburnerTypeIGC is not initialized.")
-        }
-        return withUnsafePointer(to: &self.typeData!) {
-            UnsafeRawPointer($0)
-        }
-    }
-    
-    func addRef() {
-        referenceCount += 1
-    }
-    
-    func release() {
-        referenceCount -= 1
-        if referenceCount <= 0 {
-            // Perform cleanup if necessary
-            // In Swift, ARC handles memory, so no explicit deallocation
-        }
-    }
     
     func getName() -> String {
         return "Afterburner" // Or derive from partType.getName()
@@ -88,61 +58,82 @@ class Afterburner: IafterburnerIGC, IpartIGC {
     
     // MARK: - IafterburnerIGC Protocol Methods
     
-    func getFuelConsumption() -> Float {
-        return self.typeData?.fuelConsumption ?? 0.0
+    var fuelConsumption: Float {
+        return typeData?.fuelConsumption ?? 0.0
     }
     
-    func getMaxThrustWithGA() -> Float {
+    var maxThrustWithGA: Float {
         guard let ship = self.ship, let typeData = self.typeData else { return 0.0 }
         let gaThrust = ship.getSide().getGlobalAttributeSet().getAttribute(.c_gaThrust)
         return typeData.maxThrust * gaThrust
     }
     
-    func getMaxThrust() -> Float {
-        return self.typeData?.maxThrust ?? 0.0
+    var maxThrust: Float {
+        return typeData?.maxThrust ?? 0.0
     }
     
-    func getOnRate() -> Float {
-        return self.typeData?.onRate ?? 0.0
+    var onRate: Float {
+        return typeData?.onRate ?? 0.0
     }
     
-    func getOffRate() -> Float {
-        return self.typeData?.offRate ?? 0.0
+    var offRate: Float {
+        return typeData?.offRate ?? 0.0
     }
     
-    func getPower() -> Float {
-        return self.power
+    var interiorSound: SoundID {
+        return typeData?.interiorSound ?? 0
     }
     
-    func setPower(_ p: Float) {
-        assert(p >= 0.0, "Power cannot be negative")
-        assert(p <= 1.0, "Power cannot exceed 1.0")
-        
-        if p != 0.0 {
-            activate()
+    var exteriorSound: SoundID {
+        return typeData?.exteriorSound ?? 0
+    }
+    
+    var powerValue: Float {
+        get { return power }
+        set {
+            assert(newValue >= 0.0, "Power cannot be negative")
+            assert(newValue <= 1.0, "Power cannot exceed 1.0")
+            
+            if newValue != 0.0 {
+                activate()
+            }
+            
+            power = newValue
         }
-        
-        self.power = p
+    }
+    
+    var mountedFractionValue: Float {
+        get { return mountedFraction }
+        set {
+            mountedFraction = newValue
+            if newValue != 1.0 {
+                deactivate()
+            }
+        }
     }
     
     func incrementalUpdate(lastUpdate: Time, now: Time, useFuel: Bool) {
-        guard let ship = self.ship, let mission = self.mission, let typeData = self.typeData else { return }
+        guard let ship = self.ship,
+              let mission = self.mission,
+              let typeData = self.typeData else { return }
+        
         assert(now >= lastUpdate, "Current time must be greater than or equal to last update time")
         
         let dt = now - lastUpdate
         
-        if self.mountedFraction < 1.0 {
+        if mountedFraction < 1.0 {
             if useFuel {
                 let mountRate = mission.getFloatConstant(.c_fcidMountRate)
-                self.mountedFraction += dt * mountRate
+                mountedFraction += dt * mountRate
             }
             
-            if self.mountedFraction >= 1.0 {
-                if let igcSite: IIgcSite? = mission.getIgcSite() {
-                    igcSite?.playNotificationSound(typeData.interiorSound, for: ship)
-                    igcSite?.postNotificationText(ship, isExterior: false, "\(partType?.getName() ?? "Afterburner") ready.")
-                }
-                self.mountedFraction = 1.0
+            if mountedFraction >= 1.0 {
+                // Assuming getIgcSite() returns non-optional IIgcSite
+                let igcSite = mission.getIgcSite()
+                igcSite.playNotificationSound(typeData.interiorSound, for: ship)
+                igcSite.postNotificationText(ship, isExterior: false, "\(getName()) ready.")
+                
+                mountedFraction = 1.0
             } else {
                 return
             }
@@ -156,21 +147,21 @@ class Afterburner: IafterburnerIGC, IpartIGC {
             activate()
         }
         
-        if self.isActive {
+        if isActive {
             if isActivated {
-                self.power += dt * (typeData.onRate)
-                if self.power > 1.0 {
-                    self.power = 1.0
+                power += dt * onRate
+                if power > 1.0 {
+                    power = 1.0
                 }
             } else {
-                self.power -= dt * (typeData.offRate)
-                if self.power <= 0.0 {
+                power -= dt * offRate
+                if power <= 0.0 {
                     deactivate()
                 }
             }
             
-            if self.power != 0.0 && useFuel {
-                let fuelUsed = self.power * typeData.fuelConsumption * typeData.maxThrust * dt
+            if power != 0.0 && useFuel {
+                let fuelUsed = power * fuelConsumption * maxThrust * dt
                 if fuelUsed < fuel {
                     ship.setFuel(fuel - fuelUsed)
                 } else if fuel != 0.0 {
@@ -182,52 +173,31 @@ class Afterburner: IafterburnerIGC, IpartIGC {
         }
     }
     
-    func getInteriorSound() -> SoundID {
-        return self.typeData?.interiorSound ?? 0
-    }
-    
-    func getExteriorSound() -> SoundID {
-        return self.typeData?.exteriorSound ?? 0
-    }
-    
-    func getMountedFraction() -> Float {
-        return self.mountedFraction
-    }
-    
-    func setMountedFraction(_ f: Float) {
-        self.mountedFraction = f
-        if f != 1.0 {
-            deactivate()
-        }
-    }
-    
     func arm() {
-        self.mountedFraction = 1.0
+        mountedFraction = 1.0
     }
     
     // MARK: - Initialization and Termination
     
-    func initialize(mission: ImissionIGC, now: Time, data: UnsafeMutableRawPointer, dataSize: Int) throws {
+    func initialize(mission: ImissionIGC, now: Time, data: DataPartTypeIGC) throws {
         self.mission = mission
+        self.data = data
         
-        // Initialize PartType
-        let partType = PartType()
-        try partType.initialize(mission: mission, now: now, data: data, dataSize: dataSize)
-        self.partType = partType
-        
-        // Proceed with Afterburner initialization using partType
-        // Bind DataAfterburnerTypeIGC from partType's data
-        let dataPtr = partType.getData().assumingMemoryBound(to: DataAfterburnerTypeIGC.self)
-        self.typeData = dataPtr.pointee
+        // Initialize typeData if equipmentType is afterburner
+        if data.equipmentType == .afterburner, let afterburnerData = data.afterburnerData {
+            self.typeData = afterburnerData
+        } else {
+            throw InitializationError.invalidEquipmentType
+        }
     }
     
     func terminate() {
         // Terminate Afterburner
         setShip(newVal: nil, mount: .na)
         
-        // Terminate PartType
-        self.partType?.terminate()
-        self.partType = nil
+        // Terminate PartType if needed
+        // Since we're no longer using raw pointers or separate PartType instances,
+        // handle any necessary cleanup here.
     }
     
     func update(now: Time) {
@@ -245,7 +215,7 @@ class Afterburner: IafterburnerIGC, IpartIGC {
             // No need to release in Swift
         }
         
-        assert(self.mountID == .na, "Mount ID should be NA before setting new ship")
+        assert(mountID == Constants.mountNA, "Mount ID should be NA before setting new ship")
         
         self.ship = newVal
         
@@ -264,9 +234,8 @@ class Afterburner: IafterburnerIGC, IpartIGC {
         
         if newVal != self.mountID {
             deactivate()
-            var currentMount = self.mountID
-            self.ship?.mountPart(self, newVal, &currentMount)
-            self.mountID = currentMount
+            self.mountID = newVal
+            // If additional mounting logic is needed, implement here
         }
     }
     
@@ -278,19 +247,26 @@ class Afterburner: IafterburnerIGC, IpartIGC {
     
     private func activate() {
         guard let ship = self.ship, let typeData = self.typeData else { return }
-        if !self.isActive {
+        if !isActive {
             ship.changeSignature(typeData.signature)
-            self.isActive = true
-            self.power = 0.0
+            isActive = true
+            power = 0.0
         }
     }
     
     private func deactivate() {
         guard let ship = self.ship, let typeData = self.typeData else { return }
-        if self.isActive {
+        if isActive {
             ship.changeSignature(-typeData.signature)
-            self.isActive = false
-            self.power = 0.0
+            isActive = false
+            power = 0.0
         }
+    }
+    
+    // MARK: - Errors
+    
+    enum InitializationError: Error {
+        case invalidEquipmentType
+        // Add other error cases as needed
     }
 }

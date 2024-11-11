@@ -5,18 +5,19 @@
 //  Created by Kyle Peterson on 11/9/24.
 //
 
+import Foundation
+
 protocol IafterburnerIGC: IpartTypeIGC {
-    func getFuelConsumption() -> Float
-    func getMaxThrustWithGA() -> Float
-    func getMaxThrust() -> Float
-    func getOnRate() -> Float
-    func getOffRate() -> Float
-    func getPower() -> Float
-    func setPower(_ p: Float)
+    var fuelConsumption: Float { get }
+    var maxThrustWithGA: Float { get }
+    var maxThrust: Float { get }
+    var onRate: Float { get }
+    var offRate: Float { get }
+    var power: Float { get set }
+    var interiorSound: SoundID { get }
+    var exteriorSound: SoundID { get }
+    var mountedFraction: Float { get set }
+    
     func incrementalUpdate(lastUpdate: Time, now: Time, useFuel: Bool)
-    func getInteriorSound() -> SoundID
-    func getExteriorSound() -> SoundID
-    func getMountedFraction() -> Float
-    func setMountedFraction(_ f: Float)
     func arm()
 }

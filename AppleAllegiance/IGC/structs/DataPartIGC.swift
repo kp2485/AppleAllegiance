@@ -7,6 +7,7 @@
 
 struct DataPartTypeIGC {
     let equipmentType: EquipmentType
-    let successorPartID: Int // Assuming NA is represented as a specific Int value
+    let successorPartID: Int // Use Constants.NA if not applicable
+    let afterburnerData: DataAfterburnerTypeIGC?
     // Add other necessary properties
 }

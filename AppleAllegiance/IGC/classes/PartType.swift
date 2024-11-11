@@ -5,8 +5,6 @@
 //  Created by Kyle Peterson on 11/9/24.
 //
 
-// PartType.swift
-
 import Foundation
 
 // MARK: - PartType Class
@@ -15,13 +13,9 @@ class PartType: IpartTypeIGC {
     
     // MARK: - Properties
     
-    private weak var mission: ImissionIGC?
-    private var dataSize: Int = 0
-    private var data: DataPartTypeIGC?
+    weak var mission: ImissionIGC?
+    var data: DataPartTypeIGC?
     private var pptSuccessor: IpartTypeIGC?
-    
-    // Reference counting properties
-    private var referenceCount: Int = 1
     
     // MARK: - Initializer
     
@@ -29,31 +23,10 @@ class PartType: IpartTypeIGC {
         // Initializer logic if needed
     }
     
-    // MARK: - IpartTypeIGC Protocol Methods
-    
-    func getData() -> UnsafeRawPointer {
-        guard let data = self.data else {
-            fatalError("DataPartTypeIGC is not initialized.")
-        }
-        return withUnsafePointer(to: &self.data!) {
-            UnsafeRawPointer($0)
-        }
-    }
-    
-    func addRef() {
-        referenceCount += 1
-    }
-    
-    func release() {
-        referenceCount -= 1
-        if referenceCount <= 0 {
-            // Perform cleanup if necessary
-            // In Swift, ARC handles memory, so no explicit deallocation
-        }
-    }
+    // MARK: - IpartIGC Protocol Methods
     
     func getName() -> String {
-        return getEquipmentTypeName(self.data?.equipmentType ?? .afterburner)
+        return getEquipmentTypeName(data?.equipmentType ?? .afterburner)
     }
     
     func getEquipmentTypeName(_ et: EquipmentType) -> String {
@@ -77,27 +50,22 @@ class PartType: IpartTypeIGC {
         }
     }
     
+    // MARK: - IpartTypeIGC Protocol Methods
+    
+    // The 'data' property is now accessible directly; no need for getData()
+    
     // MARK: - Initialization and Termination
     
-    func initialize(mission: ImissionIGC, now: Time, data: UnsafeMutableRawPointer, dataSize: Int) throws {
-        assert(mission != nil, "Mission cannot be nil")
+    func initialize(mission: ImissionIGC, now: Time, data: DataPartTypeIGC) throws {
         self.mission = mission
+        self.data = data
         
-        guard dataSize >= MemoryLayout<DataPartTypeIGC>.size else {
-            throw InitializationError.invalidDataSize
-        }
-        
-        self.dataSize = dataSize
-        // Allocate and copy the DataPartTypeIGC data
-        self.data = data.assumingMemoryBound(to: DataPartTypeIGC.self).pointee
-        
-        if self.data?.successorPartID != Constants.NA {
-            if let successor = mission.getPartType(self.data!.successorPartID) {
-                self.pptSuccessor = successor
-                assert(self.pptSuccessor != nil, "Successor PartType should not be nil")
-            } else {
-                assertionFailure("Failed to get successor PartType")
+        let successorID = data.successorPartID
+        if successorID != Constants.NA {
+            guard let successor = mission.getPartType(successorID) else {
+                throw InitializationError.invalidSuccessorPartType
             }
+            self.pptSuccessor = successor
         }
         
         mission.addPartType(self)
@@ -108,19 +76,10 @@ class PartType: IpartTypeIGC {
         mission.deletePartType(self)
     }
     
-    // MARK: - Export Method
-    
-    func exportData(to dataPointer: UnsafeMutableRawPointer?) -> Int {
-        if let dataPointer = dataPointer, var data = self.data {
-            memcpy(dataPointer, &data, self.dataSize)
-        }
-        return self.dataSize
-    }
-    
     // MARK: - Errors
     
     enum InitializationError: Error {
-        case invalidDataSize
+        case invalidSuccessorPartType
         // Add other error cases as needed
     }
 }

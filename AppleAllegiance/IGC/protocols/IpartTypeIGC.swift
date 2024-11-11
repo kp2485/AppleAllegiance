@@ -7,13 +7,11 @@
 
 import Foundation
 
-protocol IpartTypeIGC: AnyObject {
-    func getData() -> UnsafeRawPointer
-    func addRef()
-    func release()
-    func getName() -> String
+protocol IpartTypeIGC: IpartIGC {
+    var data: DataPartTypeIGC? { get }
     func getEquipmentTypeName(_ et: EquipmentType) -> String
     func terminate()
     // Add other necessary methods
 }
+
 
