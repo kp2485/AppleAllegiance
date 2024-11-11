@@ -12,3 +12,9 @@ protocol IpartIGC: AnyObject {
     // Add other necessary methods
 }
 
+// Default implementation
+extension IpartIGC {
+    func getName() -> String {
+        return "Unknown Part"
+    }
+}

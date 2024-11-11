@@ -268,5 +268,11 @@ class Afterburner: IafterburnerIGC {
     enum InitializationError: Error {
         case invalidEquipmentType
         // Add other error cases as needed
+        var errorDescription: String? {
+                switch self {
+                case .invalidEquipmentType:
+                    return "The specified equipment type is invalid or does not exist."
+                }
+            }
     }
 }

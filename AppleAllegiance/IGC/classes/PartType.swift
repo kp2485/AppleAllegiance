@@ -78,8 +78,14 @@ class PartType: IpartTypeIGC {
     
     // MARK: - Errors
     
-    enum InitializationError: Error {
+    enum InitializationError: Error, LocalizedError {
         case invalidSuccessorPartType
-        // Add other error cases as needed
+        
+        var errorDescription: String? {
+            switch self {
+            case .invalidSuccessorPartType:
+                return "The specified successor part type is invalid or does not exist."
+            }
+        }
     }
 }
